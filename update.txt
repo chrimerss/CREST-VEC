@@ -1,0 +1,3 @@
+UPDATE:
+
+2021.07.14: Routing process - output surface runoff (mm/h) and interflow in (cms) only on account for baseflow in river network routing (mizuroute)

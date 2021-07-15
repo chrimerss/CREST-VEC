@@ -1,0 +1,2 @@
+./confiugre
+make

@@ -93,6 +93,7 @@ CONTAINS
   USE var_lookup,  ONLY : ixHRU2SEG              ! index of variables for data structure
   USE var_lookup,  ONLY : ixNTOPO                ! index of variables for data structure
   USE globalData,  ONLY : RCHFLX                 ! Reach flux data structures (entire river network)
+  USE globalData,  ONLY : RCHFLX_SUB             ! Reach flux data structures (entire river network)
   USE globalData,  ONLY : KROUTE                 ! Reach k-wave data structures (entire river network)
 
   USE globalData,  ONLY : nHRU, nRch             ! number of HRUs and Reaches in the whole network
@@ -134,8 +135,9 @@ CONTAINS
    if (ntopAugmentMode .or. idSegOut>0) stop
 
    ! allocate space for the entire river network
-   allocate(RCHFLX(nEns,nRch), KROUTE(nEns,nRch), stat=ierr)
-   if(ierr/=0)then; message=trim(message)//'problem allocating [RCHFLX, KROUTE]'; return; endif
+   allocate(RCHFLX(nEns,nRch), RCHFLX_SUB(nEns,nRch), KROUTE(nEns,nRch), stat=ierr)
+   if(ierr/=0)then; message=trim(message)//'problem allocating [RCHFLX,RCHFLX_SUB, KROUTE]'; return; endif
+ 
 
    ! populate basiID and reachID vectors for output (in ONLY master processor)
    ! populate runoff data structure (only meta, no runoff values)
@@ -232,6 +234,7 @@ CONTAINS
   USE public_var,    ONLY : fname_state_in    ! name of state input file
   USE public_var,    ONLY : restart_dir       ! directory containing output data
   USE globalData,    ONLY : RCHFLX            ! reach flux structure
+  USE globalData,    ONLY : RCHFLX_SUB        ! reach flux structure
   USE globalData,    ONLY : TSEC              ! begining/ending of simulation time step [sec]
 
   implicit none
@@ -263,6 +266,12 @@ CONTAINS
    RCHFLX(:,:)%BASIN_QR(1) = 0._dp
    RCHFLX(:,:)%REACH_VOL(0) = 0._dp
    RCHFLX(:,:)%REACH_VOL(1) = 0._dp
+
+   RCHFLX_SUB(:,:)%BASIN_QI = 0._dp
+   RCHFLX_SUB(:,:)%BASIN_QR(0) = 0._dp
+   RCHFLX_SUB(:,:)%BASIN_QR(1) = 0._dp
+   RCHFLX_SUB(:,:)%REACH_VOL(0) = 0._dp
+   RCHFLX_SUB(:,:)%REACH_VOL(1) = 0._dp   
 
    ! initialize time
    TSEC(0)=0._dp; TSEC(1)=dt

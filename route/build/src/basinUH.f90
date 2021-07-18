@@ -17,6 +17,7 @@ CONTAINS
  ! ---------------------------------------------------------------------------------------
  SUBROUTINE IRF_route_basin(iens,          & ! input: ensemble index
                             reachRunoff,   & ! input: instantaneous reach runoff volume from hru (m3/s)
+                            flag_subsurf,  & ! input: flag whether activate subsurface route
                             RCHFLX_out,    & ! inout: reach flux data structure
                             ierr, message, & ! output: error control
                             ixSubRch)        ! optional input: subset of reach indices to be processed
@@ -24,6 +25,7 @@ CONTAINS
  ! input
  integer(i4b), intent(in)                 :: iens            ! ith ensemble
  real(dp)    , intent(in)                 :: reachRunoff(:)  ! instantaneous reach runoff volumen (m3/s)
+ LOGICAL, intent(in)                      :: flag_subsurf    ! whether activates subsurface route
  ! inout
  type(STRFLX), intent(inout), allocatable :: RCHFLX_out(:,:) ! Reach fluxes (ensembles, space [reaches]) for decomposed domains
  ! output
@@ -64,7 +66,7 @@ CONTAINS
   if (.not. doRoute(iSeg)) cycle
 
   RCHFLX_out(iens,iSeg)%BASIN_QI = reachRunoff(iSeg)
-  call hru_irf(iEns, iSeg, .false., RCHFLX_out, ierr, cmessage)
+  call hru_irf(iEns, iSeg, flag_subsurf, RCHFLX_out, ierr, cmessage)
 !  f(ierr/=0)then; ixmessage(iSeg)=trim(message)//trim(cmessage); exit; endif
 
  end do
@@ -78,15 +80,17 @@ CONTAINS
  ! ---------------------------------------------------------------------------------------
  SUBROUTINE IRF_route_basin_subsurf(iens,          & ! input: ensemble index
                                     reachSubRunoff,   & ! input: instantaneous reach runoff volume from hru (m3/s)
-                                    RCHFLX_out,    & ! inout: reach flux data structure
+                                    flag_subsurf,  & ! input: flag whether activate subsurface route                                    
+                                    RCHFLX_SUB,    & ! inout: reach flux data structure
                                     ierr, message, & ! output: error control
                                     ixSubRch)        ! optional input: subset of reach indices to be processed
  implicit none
  ! input
  integer(i4b), intent(in)                 :: iens            ! ith ensemble
  real(dp)    , intent(in)                 :: reachSubRunoff(:)  ! instantaneous reach runoff volumen (m3/s)
+ LOGICAL, intent(in)                      :: flag_subsurf    ! whether activates subsurface route
  ! inout
- type(STRFLX), intent(inout), allocatable :: RCHFLX_out(:,:) ! Reach fluxes (ensembles, space [reaches]) for decomposed domains
+ type(STRFLX), intent(inout), allocatable :: RCHFLX_SUB(:,:) ! Reach fluxes (ensembles, space [reaches]) for decomposed domains
  ! output
  integer(I4B), intent(out)                :: ierr            ! error code
  character(*), intent(out)                :: message         ! error message
@@ -94,20 +98,17 @@ CONTAINS
  integer(i4b), intent(in),   optional     :: ixSubRch(:)     ! subset of reach indices to be processed
  ! local variables
  integer(i4b)                             :: nSeg            ! number of reaches to be processed
- type(STRFLX)               ,allocatable  :: RCHSUBSURF(:,:) ! reach subsurface flux
- integer(i4b)                             :: iSeg            ! reach loop indix
+ integer(i4b)                             :: iSeg            ! reach loop index
  logical(lgt),               allocatable  :: doRoute(:)      ! logical to indicate which reaches are processed
  character(len=strLen)                    :: cmessage        ! error message from subroutines
 
  ierr=0; message='IRF_route_basin_subsurf/'
 
- nSeg = size(RCHFLX_out(iens,:))
+ nSeg = size(RCHFLX_SUB(iens,:))
 
  allocate(doRoute(nSeg), stat=ierr)
  if(ierr/=0)then; message=trim(message)//'unable to allocate space for [doRoute]'; return; endif
 
- allocate(RCHSUBSURF(iens,nSeg), stat=ierr)
- if(ierr/=0)then; message=trim(message)//'unable to allocate space for [RCHSUBSURF]'; return; endif
 
  ! if a subset of reaches is processed
  if (present(ixSubRch))then
@@ -128,14 +129,12 @@ CONTAINS
 
   if (.not. doRoute(iSeg)) cycle
 
-  RCHSUBSURF(iens,iSeg)%BASIN_QI = reachSubRunoff(iSeg)
-  call hru_irf(iEns, iSeg, .true., RCHSUBSURF, ierr, cmessage)
- !  f(ierr/=0)then; ixmessage(iSeg)=trim(message)//trim(cmessage); exit; endif
-  RCHFLX_out(iens,iSeg)%BASIN_QR= RCHFLX_out(iens,iSeg)%BASIN_QR+RCHSUBSURF(iens,iSeg)%BASIN_QR
-  RCHFLX_out(iens,iSeg)%QFUTURE= RCHFLX_out(iens,iSeg)%QFUTURE+RCHSUBSURF(iens,iSeg)%QFUTURE
+  RCHFLX_SUB(iens,iSeg)%BASIN_QI = reachSubRunoff(iSeg)
+  call hru_irf(iEns, iSeg, flag_subsurf, RCHFLX_SUB, ierr, cmessage)
+  ! if(ierr/=0)then; ixmessage(iSeg)=trim(message)//trim(cmessage); exit; endif
+  ! RCHFLX_out(iens,iSeg)%TAKE= RCHSUBSURF(iens,iSeg)%BASIN_QR(0)
  end do
  !$OMP END PARALLEL DO
- deallocate(RCHSUBSURF)
 
  END SUBROUTINE IRF_route_basin_subsurf
 
@@ -175,6 +174,7 @@ CONTAINS
    endif
    allocate(RCHFLX_out(iens,iSeg)%QFUTURE(ntdh), stat=ierr)
    if(ierr/=0)then; message=trim(message)//'unable to allocate space for RCHFLX_out(iens,segIndex)%QFUTURE'; return; endif
+
 
    RCHFLX_out(iens,iSeg)%QFUTURE(:) = 0._dp
 

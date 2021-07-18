@@ -54,9 +54,12 @@ contains
   INTEGER(I4B)                           :: NTDH        ! number of values on the time delay histogram
   INTEGER(I4B)                           :: JTIM        ! (loop through future time steps)
   REAL(DP)                               :: TFUTURE     ! future time (units of dt)
-  REAL(DP)                               :: X_VALUE     ! xvalue to evaluate using gammp
+  REAL(DP)                               :: X_VALUE     ! xvalue to evaluate using gammp 
   REAL(DP)                               :: CUMPROB     ! cumulative probability at JTIM
   REAL(DP)                               :: PSAVE       ! cumulative probability at JTIM-1
+  REAL(DP)                               :: alamb_sub   !
+  REAL(DP)                               :: X_VALUE_SUB !
+  REAL(DP)                               :: cumprob_sub !
   ! ---------------------------------------------------------------------------------------
   ! initialize error control
   ierr=0; message='basinUH/'
@@ -102,24 +105,26 @@ contains
   ! ensure that the fractions sum to 1.0 (account for rounding errors, and not enough bins)
   FRAC_FUTURE(:) = FRAC_FUTURE(:) / SUM(FRAC_FUTURE(:))
   ! ---------------------------------------------------------------------------------------
+
   ! ADDED process to determine subsurface routing UH
   if (doesSubSurfRoute==1) then
-    alamb = subfshape/subtscale        ! scale parameter for subsurface routing
-    X_VALUE = alamb*dt
-    cumprob = gammp(subfshape, X_VALUE)
-    if(cumprob > 0.999_dp) then ! in case if the cumprob is close to 1 in one model time step
+
+    alamb_sub = subfshape/subtscale        ! scale parameter for subsurface routing
+    X_VALUE_SUB = alamb_sub*dt
+    cumprob_sub = gammp(subfshape, X_VALUE_SUB)
+    if(cumprob_sub > 0.999_dp) then ! in case if the cumprob is close to 1 in one model time step
     ntdh_try = 1.999_dp
     else
     ntdh_min = 1._dp
     ntdh_max = 1000._dp
     ntdh_try = 0.5_dp*(ntdh_min + ntdh_max)
     do itry=1,maxtry
-      x_value = alamb*dt*ntdh_try
-      cumprob = gammp(subfshape, x_value)
-      !print*, tscale, ntdh_try, cumprob, x_value, itry
-      if(cumprob < 0.99_dp)  ntdh_min = ntdh_try
-      if(cumprob > 0.999_dp) ntdh_max = ntdh_try
-      if(cumprob > 0.99_dp .and. cumprob < 0.999_dp) exit
+      X_VALUE_SUB = alamb_sub*dt*ntdh_try
+      cumprob_sub = gammp(subfshape, X_VALUE_SUB)
+      !print*, tscale, ntdh_try, cumprob_sub, x_value, itry
+      if(cumprob_sub < 0.99_dp)  ntdh_min = ntdh_try
+      if(cumprob_sub > 0.999_dp) ntdh_max = ntdh_try
+      if(cumprob_sub > 0.99_dp .and. cumprob_sub < 0.999_dp) exit
       ntdh_try = 0.5_dp*(ntdh_min + ntdh_max)
       if(itry==maxtry)then; ierr=20; message=trim(message)//'cannot identify the maximum number of bins for the tdh'; return; endif
     end do
@@ -135,9 +140,9 @@ contains
     PSAVE = 0.                                                 ! cumulative probability at JTIM-1
     DO JTIM=1,NTDH
     TFUTURE            = REAL(JTIM, kind(dp))*DT           ! future time
-    CUMPROB            = gammp(fshape,alamb*TFUTURE)       ! cumulative probability at JTIM
-    FRAC_FUTURE_SUB(JTIM)  = MAX(0._DP, CUMPROB-PSAVE)     ! probability between JTIM-1 and JTIM
-    PSAVE              = CUMPROB                           ! cumulative probability at JTIM-1
+    cumprob_sub            = gammp(subfshape,alamb_sub*TFUTURE)       ! cumulative probability at JTIM
+    FRAC_FUTURE_SUB(JTIM)  = MAX(0._DP, cumprob_sub-PSAVE)     ! probability between JTIM-1 and JTIM
+    PSAVE              = cumprob_sub                           ! cumulative probability at JTIM-1
     !WRITE(*,'(I5,1X,F20.5,1X,2(F11.5))') JTIM, TFUTURE, FRAC_FUTURE(JTIM), CUMPROB
     END DO
     ! ensure that the fractions sum to 1.0 (account for rounding errors, and not enough bins)

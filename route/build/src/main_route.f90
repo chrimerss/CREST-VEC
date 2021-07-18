@@ -6,7 +6,8 @@ USE nrtype                                                  ! variable types, et
 ! mapping HRU runoff to reach
 USE remapping,           only : basin2reach
 ! subroutines: basin routing
-USE basinUH_module,      only : IRF_route_basin             ! perform UH convolution for basin routing
+USE basinUH_module,      only : IRF_route_basin,&
+                                IRF_route_basin_subsurf             ! perform UH convolution for basin routing
 
 ! subroutines: river routing
 USE accum_runoff_module, only : accum_runoff                ! upstream flow accumulation
@@ -46,6 +47,7 @@ contains
    USE globalData, only : NETOPO           ! entire river reach netowrk topology structure
    USE globalData, only : RPARAM           ! entire river reach parameter structure
    USE globalData, only : RCHFLX           ! entire reach flux structure
+   USE globalData, only : RCHFLX_SUB       ! entire reach flux structure for subsurface runoff
    USE globalData, only : KROUTE           ! entire river reach kwt sate structure
    USE globalData, only : runoff_data      ! runoff data structure
    USE globalData, only : river_basin      ! OMP basin decomposition
@@ -102,6 +104,7 @@ contains
     ! perform Basin routing
     call IRF_route_basin(iens,              &  ! input:  ensemble index
                          reachRunoff_local, &  ! input:  instantaneous Runoff volume [m3/s] flowing into reach
+                         .false.,           &  ! input:  deactivate subsurface routing
                          RCHFLX,            &  ! inout:  reach flux data structure
                          ierr, cmessage)       ! output: error controls
     if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
@@ -117,16 +120,25 @@ contains
   end if
 
   ! 3. subroutine: basin subsurface routing
-  if (doesSubSurfRoute == 1 ) then
+  if (doesSubSurfRoute == 1 .and. doesBasinRoute==1) then
     call system_clock(startTime)
     ! perform basin subsurface routing
-    call IRF_route_basin(iens,                   & ! input: ensemble index
-                         reachSubRunoff_local,   & ! input: instantaneous subsurface runoff volume (m3/s) flowing to reach
-                         RCHFLX,                 & ! inout: reach flux data structure plus subsurface routing
-                         ierr, cmessage)           ! output: error controls
+    call IRF_route_basin_subsurf(iens,                   & ! input: ensemble index
+                                reachSubRunoff_local,   & ! input: instantaneous subsurface runoff volume (m3/s) flowing to reach
+                                .true.,                 & ! input: activate subsurface routing
+                                RCHFLX_SUB,             & ! inout: reach flux data structure plus subsurface routing
+                                ierr, cmessage)           ! output: error controls
     call system_clock(endTime)
     elapsedTime= real(endTime-startTime, kind(dp))/real(cr)
     write(*,"(A,1PG15.7,A)") '      elapsed-time [IRF_route_basin_subsurface] = ', elapsedTime, ' s'
+    ! ntdh= size(RCHFLX%QFUTURE)
+    do iSeg = 1,nRch
+      RCHFLX(iens, iSeg)%BASIN_QR(0)= RCHFLX(iens,iSeg)%BASIN_QR(0)+RCHFLX_SUB(iens,iSeg)%BASIN_QR(0)
+      RCHFLX(iens, iSeg)%BASIN_QR(1)= RCHFLX(iens,iSeg)%BASIN_QR(1)+RCHFLX_SUB(iens,iSeg)%BASIN_QR(1)
+      ! do it = 1,ntdh
+      !   RCHFLX(iens,iSeg)%QFUTURE(it)= RCHFLX(iens,iSeg)%QFUTURE(it) + RCHFLX_SUB(iens,iSeg)%QFUTURE(it)
+      ! end do
+    end do
   endif
 
   ! 4. subroutine: river reach routing

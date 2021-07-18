@@ -14,6 +14,7 @@ MODULE read_param_module
                                  subfshape, subtscale, & ! basin subsurface IRF routing parameters
                                  velo, diff,     &  ! IRF routing parameters
                                  mann_n, wscale     ! KWT routing parameters
+   USE public_var,        ONLY : doesSubSurfRoute   ! if does subsurface routing
    implicit none
    ! input variables
    character(*),intent(in)    :: fname              ! parameter namelist name
@@ -35,6 +36,9 @@ MODULE read_param_module
    call file_open(trim(fname),iunit, ierr, cmessage)
    if(ierr/=0)then; ierr=30; message=trim(cmessage)//': '//trim(fname); return;endif
    read(iunit, nml=HSLOPE)              ! basin IRF routing parameters
+   if (doesSubSurfRoute==1) then
+   read(iunit, nml=SUBSURFACE)          ! basin subsurface IRF routing parameters
+   endif
    read(iunit, nml=IRF_UH)              ! IRF routing parameters
    read(iunit, nml=KWT)                 ! kinematic wave routing parameters
    close(iunit)

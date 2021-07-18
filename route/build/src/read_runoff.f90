@@ -234,7 +234,6 @@ contains
                              iTime,          &  ! input: time index
                              runoff_data_in, &  ! inout: runoff data structure
                              ierr, message)     ! output: error control
- USE public_var, only : doesSubSurfRoute    ! whether read subsurface runoff 
  implicit none
  ! input variables
  character(*), intent(in)      :: fname              ! filename
@@ -304,21 +303,19 @@ contains
  call get_nc(ncidRunoff, vname_qsim, dummy, iStart, iCount, ierr, cmessage)
  if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
 
+ ! replace _fill_value with -999 for dummy
+ where ( abs(dummy - ro_fillvalue) < verySmall ) dummy = realMissing
+ ! reshape
+ runoff_data_in%qsim(1:nSpace) = dummy(1:nSpace,1)
  ! get simulated subsurface runoff data
  if (doesSubSurfRoute==1) then
  call get_nc(ncidRunoff, vname_subqsim, dummy, iStart, iCount, ierr, cmessage)
+ ! replace _fill_value with -999 for dummy
+ where ( abs(dummy - ro_fillvalue) < verySmall ) dummy = realMissing
+ runoff_data_in%subqsim(1:nSpace) = dummy(1:nSpace,1)
  endif
  if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
 
-
- ! replace _fill_value with -999 for dummy
- where ( abs(dummy - ro_fillvalue) < verySmall ) dummy = realMissing
-
- ! reshape
- runoff_data_in%qsim(1:nSpace) = dummy(1:nSpace,1)
- if (doesSubSurfRoute==1) then
- runoff_data_in%subqsim(1:nSpace) = dummy(1:nSpace,1)
- endif
 
  end subroutine read_1D_runoff
 
@@ -357,20 +354,20 @@ contains
  iStart = [1,1,iTime]
  iCount = [nSpace(2),nSpace(1),1]
  call get_nc(ncidRunoff, vname_qsim, dummy, iStart, iCount, ierr, cmessage)
+ ! replace _fill_value with -999. for dummy
+ where ( abs(dummy - ro_fillvalue) < verySmall ) dummy = realMissing
+ ! reshape
+ runoff_data_in%qsim2d(1:nSpace(2),1:nSpace(1)) = dummy(1:nSpace(2),1:nSpace(1),1)
+
  if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
  if (doesSubSurfRoute==1) then
  call get_nc(ncidRunoff, vname_subqsim, dummy, iStart, iCount, ierr, cmessage)
- endif
- if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
-
- ! replace _fill_value with -999. for dummy
  where ( abs(dummy - ro_fillvalue) < verySmall ) dummy = realMissing
-
- ! reshape
- runoff_data_in%qsim2d(1:nSpace(2),1:nSpace(1)) = dummy(1:nSpace(2),1:nSpace(1),1)
- if (doesSubSurfRoute==1) then
  runoff_data_in%subqsim2D(1:nSpace(2),1:nSpace(1)) = dummy(1:nSpace(2),1:nSpace(1),1)
  endif
+ if(ierr/=0)then; message=trim(message)//trim(cmessage); return; endif
+ 
+
 
  end subroutine read_2D_runoff
 
